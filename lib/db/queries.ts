@@ -191,17 +191,24 @@ export async function getPlanById(id: string): Promise<Plan | null> {
 
 export async function updateActivityPositions(
   planId: string,
-  updates: { [activityId: string]: { type: 'main' | 'alternative' | 'removed'; dayId: string; sortOrder: number } }
+  updates: { [activityId: string]: { type: 'main' | 'alternative' | 'removed'; dayId: string; sortOrder: number; time?: string } }
 ): Promise<void> {
   // Update each activity
   for (const [activityId, data] of Object.entries(updates)) {
+    const updateData: Record<string, unknown> = {
+      type: data.type,
+      dayId: data.dayId,
+      sortOrder: data.sortOrder,
+      updatedAt: new Date(),
+    };
+
+    // Only update time if provided
+    if (data.time !== undefined) {
+      updateData.time = data.time;
+    }
+
     await getDb().update(activities)
-      .set({
-        type: data.type,
-        dayId: data.dayId,
-        sortOrder: data.sortOrder,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(activities.id, activityId));
   }
 

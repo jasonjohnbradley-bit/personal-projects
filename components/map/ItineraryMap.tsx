@@ -2,13 +2,19 @@
 
 import { useEffect, useRef } from 'react';
 import type { Location } from '@/lib/types/itinerary';
+import type { EnhancedLocation } from '@/lib/utils/locationUtils';
 
 // Only import Leaflet types for TypeScript
 import type { Map as LeafletMap } from 'leaflet';
 
 interface ItineraryMapProps {
-  locations: Location[];
+  locations: (Location | EnhancedLocation)[];
   center?: [number, number];
+}
+
+// Type guard to check if location has day info
+function hasEnhancedInfo(loc: Location | EnhancedLocation): loc is EnhancedLocation {
+  return 'dayNumber' in loc && typeof loc.dayNumber === 'number';
 }
 
 export function ItineraryMap({ locations, center }: ItineraryMapProps) {
@@ -46,25 +52,33 @@ export function ItineraryMap({ locations, center }: ItineraryMapProps) {
 
       // Add markers for each location
       locations.forEach((loc) => {
-        const icon = createCustomIcon(L, loc.emoji, loc.color);
+        const icon = createCustomIcon(L, loc.emoji, loc.color, hasEnhancedInfo(loc) ? loc.dayNumber : undefined);
         const marker = L.marker([loc.lat, loc.lng], { icon }).addTo(map);
 
+        // Build popup content with day info if available
+        const dayInfo = hasEnhancedInfo(loc)
+          ? `<div style="margin-bottom: 6px; color: #8B7355; font-size: 0.75rem; font-weight: 600;">Day ${loc.dayNumber}${loc.time ? ` • ${loc.time}` : ''}</div>`
+          : '';
+
         const popupContent = `
-          <div style="min-width: 180px; font-family: 'Segoe UI', sans-serif;">
-            <h3 style="margin: 0 0 8px 0; font-size: 1rem;">${loc.name}</h3>
+          <div style="min-width: 180px; font-family: 'Quicksand', 'Segoe UI', sans-serif; background: #FDF8F3; padding: 12px; border-radius: 12px;">
+            ${dayInfo}
+            <h3 style="margin: 0 0 8px 0; font-size: 1.1rem; font-family: 'Caveat', cursive; color: #6B5344;">${loc.name}</h3>
             <span style="
               background: ${loc.color};
-              color: white;
-              padding: 2px 8px;
+              color: #FDF8F3;
+              padding: 3px 10px;
               border-radius: 12px;
               font-size: 0.75rem;
+              font-weight: 600;
               display: inline-block;
               margin-bottom: 8px;
+              border: 2px solid #6B5344;
             ">${loc.category}</span>
-            ${loc.rating ? `<div style="margin-bottom: 8px;">⭐ ${loc.rating}</div>` : ''}
+            ${loc.rating ? `<div style="margin-bottom: 8px; color: #5C4A3D;">★ ${loc.rating}</div>` : ''}
             <a href="https://www.google.com/maps/search/${encodeURIComponent(loc.name)}"
                target="_blank"
-               style="color: #2d5016; text-decoration: none;">
+               style="color: #8B7355; text-decoration: none; font-weight: 600;">
               📍 Open in Google Maps
             </a>
           </div>
@@ -110,25 +124,46 @@ function calculateCenter(locations: Location[]): [number, number] {
   return [sumLat / locations.length, sumLng / locations.length];
 }
 
-function createCustomIcon(L: typeof import('leaflet'), emoji: string, color: string) {
+function createCustomIcon(L: typeof import('leaflet'), emoji: string, color: string, dayNumber?: number) {
+  const dayBadge = dayNumber !== undefined
+    ? `<div style="
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: #6B5344;
+        color: #FDF8F3;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        font-family: 'Quicksand', sans-serif;
+        border: 2px solid #FDF8F3;
+      ">${dayNumber}</div>`
+    : '';
+
   return L.divIcon({
     html: `
       <div style="
+        position: relative;
         background: ${color};
-        width: 34px;
-        height: 34px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 16px;
-        border: 3px solid white;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-      ">${emoji}</div>
+        border: 3px solid #6B5344;
+        box-shadow: 0 3px 0 #6B5344, 0 5px 10px rgba(107, 83, 68, 0.3);
+      ">${emoji}${dayBadge}</div>
     `,
     className: '',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    popupAnchor: [0, -17],
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
   });
 }

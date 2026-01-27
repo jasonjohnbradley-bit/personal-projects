@@ -25,7 +25,7 @@ export function AlternativeCard({ activity, onRemove, onEdit, isDragging }: Alte
         }}
         aria-label="Edit activity"
       >
-        ✏️
+        ✎
       </button>
       <button
         className="remove-btn"
@@ -37,15 +37,18 @@ export function AlternativeCard({ activity, onRemove, onEdit, isDragging }: Alte
       >
         ✕
       </button>
-      <div className="activity-time">{activity.emoji} {activity.time}</div>
+      <div className="alternative-header">
+        <span className="ghibli-marker small">{activity.emoji}</span>
+        <div className="activity-time">{activity.time}</div>
+      </div>
       <div className="activity-title">{activity.title}</div>
       <div className="activity-details">{activity.details}</div>
       <div className="activity-meta">
         {activity.rating && (
-          <span className="badge badge-rating">⭐ {activity.rating}</span>
+          <span className="badge badge-rating">★ {activity.rating}</span>
         )}
         {activity.price && (
-          <span className="badge badge-price">💴 {activity.price}</span>
+          <span className="badge badge-price">{activity.price}</span>
         )}
         {activity.mapUrl && (
           <a
@@ -55,7 +58,7 @@ export function AlternativeCard({ activity, onRemove, onEdit, isDragging }: Alte
             className="activity-link"
             onClick={(e) => e.stopPropagation()}
           >
-            📍 Map
+            ⌖ Map
           </a>
         )}
       </div>

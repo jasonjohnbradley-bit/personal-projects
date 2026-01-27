@@ -18,7 +18,9 @@ export function ActivityCard({ activity, onRemove, onEdit, isDragging, justDropp
       data-id={activity.id}
       data-type={activity.type}
     >
-      <div className="drag-handle">🐾</div>
+      <div className="drag-handle">
+        <span className="ghibli-icon">⋮⋮</span>
+      </div>
       <button
         className="edit-btn"
         onClick={(e) => {
@@ -27,7 +29,7 @@ export function ActivityCard({ activity, onRemove, onEdit, isDragging, justDropp
         }}
         aria-label="Edit activity"
       >
-        ✏️
+        ✎
       </button>
       <button
         className="remove-btn"
@@ -39,16 +41,19 @@ export function ActivityCard({ activity, onRemove, onEdit, isDragging, justDropp
       >
         ✕
       </button>
+      <div className="activity-emoji">
+        <span className="ghibli-marker">{activity.emoji}</span>
+      </div>
       <div className="activity-content">
-        <div className="activity-time">{activity.emoji} {activity.time}</div>
+        <div className="activity-time">{activity.time}</div>
         <div className="activity-title">{activity.title}</div>
         <div className="activity-details">{activity.details}</div>
         <div className="activity-meta">
           {activity.rating && (
-            <span className="badge badge-rating">⭐ {activity.rating}</span>
+            <span className="badge badge-rating">★ {activity.rating}</span>
           )}
           {activity.price && (
-            <span className="badge badge-price">💴 {activity.price}</span>
+            <span className="badge badge-price">{activity.price}</span>
           )}
           {activity.mapUrl && (
             <a
@@ -58,7 +63,7 @@ export function ActivityCard({ activity, onRemove, onEdit, isDragging, justDropp
               className="activity-link"
               onClick={(e) => e.stopPropagation()}
             >
-              📍 Map
+              ⌖ Map
             </a>
           )}
         </div>

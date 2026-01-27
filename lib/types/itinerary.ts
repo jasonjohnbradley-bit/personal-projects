@@ -33,6 +33,8 @@ export interface Location {
   color: string;
   category: string;
   rating?: string;
+  dayNumber?: number;
+  activityId?: string;
 }
 
 export interface PlanPreferences {
@@ -71,6 +73,7 @@ export interface UpdateActivitiesInput {
       type: 'main' | 'alternative' | 'removed';
       dayId: string;
       sortOrder: number;
+      time?: string;
     };
   };
 }

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FileUpload } from '@/components/ui/FileUpload';
 
 const loadingSteps = [
   { text: 'Researching destinations...', duration: 10000 },
@@ -69,6 +70,20 @@ export default function Home() {
         : [...prev[field], value]
     }));
   };
+
+  const handlePlacesExtracted = useCallback((places: string[]) => {
+    setFormData(prev => {
+      // Merge with existing recommendations
+      const existing = prev.userRecommendations
+        ? prev.userRecommendations.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const merged = [...new Set([...existing, ...places])];
+      return {
+        ...prev,
+        userRecommendations: merged.join(', '),
+      };
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,13 +279,23 @@ export default function Home() {
 
             <div className="form-group">
               <label className="form-label">Your Specific Recommendations (optional)</label>
+              <p style={{ fontSize: '0.85rem', color: 'var(--ghibli-text-muted)', marginBottom: '0.75rem' }}>
+                Upload a file or type places you want to visit
+              </p>
+
+              <FileUpload
+                onPlacesExtracted={handlePlacesExtracted}
+                disabled={isLoading}
+              />
+
               <textarea
                 className="form-input form-textarea"
                 placeholder="Enter specific places you want to visit, separated by commas. e.g., Ichiran Ramen, Meiji Shrine, Tsukiji Outer Market"
                 value={formData.userRecommendations}
                 onChange={e => setFormData(prev => ({ ...prev, userRecommendations: e.target.value }))}
+                style={{ marginTop: '0.75rem' }}
               />
-              <p style={{ fontSize: '0.85rem', color: 'var(--ghibli-grey)', marginTop: '0.5rem' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--ghibli-text-muted)', marginTop: '0.5rem' }}>
                 These will be incorporated into your itinerary
               </p>
             </div>

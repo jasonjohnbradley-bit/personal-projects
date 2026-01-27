@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import type { Plan } from '@/lib/types/itinerary';
@@ -8,9 +8,15 @@ import { useItinerary } from '@/hooks/useItinerary';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { ControlBar } from '@/components/itinerary/ControlBar';
 import { DayCard } from '@/components/itinerary/DayCard';
-import { MapLegend } from '@/components/map/MapLegend';
+import { MapFilters } from '@/components/map/MapFilters';
 import { StatsCards } from '@/components/map/StatsCards';
 import { Toast } from '@/components/ui/Toast';
+import {
+  deriveLocationsFromDays,
+  getUniqueCategories,
+  getUniqueDays,
+  filterLocations,
+} from '@/lib/utils/locationUtils';
 
 // Dynamic import for map (SSR disabled)
 const ItineraryMap = dynamic(
@@ -25,6 +31,8 @@ interface PlanClientProps {
 export function PlanClient({ plan }: PlanClientProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   const {
     days,
@@ -46,6 +54,20 @@ export function PlanClient({ plan }: PlanClientProps) {
     onMove: moveActivity,
     setDraggingId,
   });
+
+  // Derive enhanced locations from days and existing locations
+  const enhancedLocations = useMemo(() => {
+    return deriveLocationsFromDays(days, plan.locations);
+  }, [days, plan.locations]);
+
+  // Get unique filter options
+  const availableCategories = useMemo(() => getUniqueCategories(enhancedLocations), [enhancedLocations]);
+  const availableDays = useMemo(() => getUniqueDays(enhancedLocations), [enhancedLocations]);
+
+  // Apply filters
+  const filteredLocations = useMemo(() => {
+    return filterLocations(enhancedLocations, selectedCategories, selectedDays);
+  }, [enhancedLocations, selectedCategories, selectedDays]);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -99,9 +121,16 @@ export function PlanClient({ plan }: PlanClientProps) {
       <div className="container">
         {/* Map Tab */}
         <div className={`tab-content ${activeTab === 0 ? 'active' : ''}`}>
-          <StatsCards locations={plan.locations} numDays={plan.numDays} />
-          <MapLegend />
-          <ItineraryMap locations={plan.locations} />
+          <StatsCards locations={enhancedLocations} />
+          <MapFilters
+            categories={availableCategories}
+            days={availableDays}
+            selectedCategories={selectedCategories}
+            selectedDays={selectedDays}
+            onCategoryChange={setSelectedCategories}
+            onDayChange={setSelectedDays}
+          />
+          <ItineraryMap locations={filteredLocations} />
         </div>
 
         {/* Day Tabs */}
@@ -110,17 +139,12 @@ export function PlanClient({ plan }: PlanClientProps) {
             key={day.id}
             className={`tab-content ${activeTab === index + 1 ? 'active' : ''}`}
           >
-            <div
-              style={{
-                background: 'var(--ghibli-sky-light)',
-                padding: '1rem',
-                borderRadius: 'var(--radius)',
-                marginBottom: '1.5rem',
-                fontSize: '0.9rem',
-              }}
-            >
-              💡 <strong>Tip:</strong> Drag activities to reorder them, or drag alternatives
-              into the main schedule. Click ✕ to remove items.
+            <div className="tip-card">
+              <span className="tip-icon">💡</span>
+              <div className="tip-content">
+                <strong>Tip:</strong> Drag activities to reorder them, or drag alternatives
+                into the main schedule. Click ✎ to edit or ✕ to remove items.
+              </div>
             </div>
 
             <DayCard

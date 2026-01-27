@@ -43,7 +43,7 @@ export function DashboardClient({ initialPlans }: DashboardClientProps) {
       <div className="header">
         <h1>My Itineraries</h1>
         <p>View and manage your travel plans</p>
-        <Link href="/" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+        <Link href="/" className="btn btn-primary" style={{ marginTop: '2rem' }}>
           + Create New Itinerary
         </Link>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Plan, Day, Activity, UpdateActivitiesInput } from '@/lib/types/itinerary';
+import { recalculateActivityTimes } from '@/lib/utils/timeCalculation';
 
 interface UseItineraryReturn {
   days: Day[];
@@ -41,6 +42,7 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
           type: 'main',
           dayId: day.id,
           sortOrder: index,
+          time: activity.time,
         };
       });
       day.alternatives.forEach((activity, index) => {
@@ -48,6 +50,7 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
           type: 'alternative',
           dayId: day.id,
           sortOrder: index,
+          time: activity.time,
         };
       });
       day.removed.forEach((activity, index) => {
@@ -55,6 +58,7 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
           type: 'removed',
           dayId: day.id,
           sortOrder: index,
+          time: activity.time,
         };
       });
     });
@@ -190,18 +194,15 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
         return day;
       });
 
-      // Handle same-day reordering
-      if (sourceDayIndex === targetDayIndex && found.type === targetType) {
-        const day = newDays[targetDayIndex];
-        const list = targetType === 'main' ? day.activities : day.alternatives;
-        // Activity was already added, just need to ensure correct order
-        const updatedList = list.map((a, idx) => ({ ...a, sortOrder: idx }));
-        if (targetType === 'main') {
-          newDays[targetDayIndex] = { ...day, activities: updatedList };
-        } else {
-          newDays[targetDayIndex] = { ...day, alternatives: updatedList };
-        }
-      }
+      // Recalculate times for affected days (main activities only)
+      const affectedDayIndices = new Set([sourceDayIndex, targetDayIndex]);
+
+      affectedDayIndices.forEach(dayIndex => {
+        const day = newDays[dayIndex];
+        // Only recalculate times for main activities
+        const recalculatedActivities = recalculateActivityTimes(day.activities);
+        newDays[dayIndex] = { ...day, activities: recalculatedActivities };
+      });
 
       // Set just dropped for animation
       setJustDroppedId(activityId);

@@ -49,6 +49,16 @@ Traveler preferences:
 ${accommodationLocation ? `- Staying at/near: ${accommodationLocation}` : ''}
 ${userRecs}
 
+MANDATORY MEALS (MUST be included for EVERY day):
+- Breakfast: Include exactly 1 breakfast/brunch activity between 8:00-10:00 AM
+  Use emoji: 🥐 for bakery/cafe OR 🍳 for restaurant breakfast
+- Lunch: Include exactly 1 lunch activity between 12:00-2:00 PM
+  Use emoji: 🍜 for noodles/ramen OR 🍱 for bento/set meal OR 🍽️ for casual restaurant
+- Dinner: Include exactly 1 dinner activity between 6:00-8:00 PM
+  Use emoji: 🍽️ for restaurant OR 🍣 for sushi/seafood OR 🍺 for izakaya
+
+These 3 meals are NON-NEGOTIABLE and must appear in every day's main activities.
+
 For each day, provide:
 1. A theme (e.g., "Shibuya & Harajuku")
 2. Brief description (1 sentence)
@@ -101,10 +111,16 @@ Return your response as valid JSON matching this exact structure:
       "emoji": "☕",
       "color": "#8B4513",
       "category": "Coffee",
-      "rating": "4.5"
+      "rating": "4.5",
+      "dayNumber": 1
     }
   ]
 }
+
+IMPORTANT FOR LOCATIONS:
+- Include a location entry for EVERY main activity across ALL days
+- The "name" in locations MUST exactly match the "title" in activities
+- Include "dayNumber" for each location to indicate which day it belongs to
 
 Use these colors for location categories:
 - Hotel: #FF1744
