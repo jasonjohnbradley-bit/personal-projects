@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from './index';
 import { plans, days, activities, locations } from './schema';
 import type { Plan, Activity, Day, Location, GeneratedItinerary, PlanPreferences, PlanSummary } from '../types/itinerary';
+import { generateActivityId } from '../utils/nanoid';
 
 export async function createPlan(
   id: string,
@@ -35,7 +36,7 @@ export async function createPlan(
     for (let i = 0; i < dayData.activities.length; i++) {
       const activity = dayData.activities[i];
       await getDb().insert(activities).values({
-        id: `d${dayData.dayNumber}a${i + 1}`,
+        id: generateActivityId(),
         dayId,
         type: 'main',
         sortOrder: i,
@@ -53,7 +54,7 @@ export async function createPlan(
     for (let i = 0; i < dayData.alternatives.length; i++) {
       const alt = dayData.alternatives[i];
       await getDb().insert(activities).values({
-        id: `d${dayData.dayNumber}alt${i + 1}`,
+        id: generateActivityId(),
         dayId,
         type: 'alternative',
         sortOrder: i,

@@ -10,12 +10,7 @@ export function buildItineraryPrompt(
     ? preferences.cuisineTypes.join(', ')
     : 'varied local cuisine';
 
-  const coffeeLevel = {
-    none: 'not interested in coffee shops',
-    low: 'occasional coffee stops',
-    medium: 'daily specialty coffee',
-    high: 'multiple specialty coffee shops daily',
-  }[preferences.coffeeInterest];
+  const coffeeShops = preferences.coffeeShopsPerDay || 0;
 
   const cultural = preferences.culturalInterests.length > 0
     ? preferences.culturalInterests.join(', ')
@@ -32,14 +27,22 @@ export function buildItineraryPrompt(
   }[preferences.activityLevel];
 
   const userRecs = preferences.userRecommendations && preferences.userRecommendations.length > 0
-    ? `\n\nIMPORTANT: The user specifically wants to visit these places - you MUST include ALL of them in the itinerary (either in main schedule or as alternatives): ${preferences.userRecommendations.join(', ')}`
+    ? `\n\nCRITICAL - USER'S MUST-VISIT PLACES (${preferences.userRecommendations.length} total):
+${preferences.userRecommendations.map((p, i) => `${i + 1}. ${p}`).join('\n')}
+
+REQUIREMENTS FOR USER PLACES:
+- Every place listed above MUST appear in your response
+- Prioritize including them as main activities
+- If a day is full, include remaining user places as alternatives
+- Use the exact names provided by the user
+- AI suggestions fill remaining activity slots after user places are included`
     : '';
 
   return `Create a detailed ${numDays}-day travel itinerary for ${destination}.
 
 Traveler preferences:
 - Cuisine interests: ${cuisines}
-- Coffee: ${coffeeLevel}
+- Coffee shops: Include exactly ${coffeeShops} specialty coffee shop${coffeeShops !== 1 ? 's' : ''} per day
 - Cultural interests: ${cultural}
 - Shopping: ${shopping}
 - Activity level: ${activityLevel}
@@ -47,27 +50,14 @@ ${accommodationLocation ? `- Staying at/near: ${accommodationLocation}` : ''}
 ${userRecs}
 
 For each day, provide:
-1. A theme/focus for the day (e.g., "Shibuya & Harajuku" or "Historic Old Town")
-2. A brief description of the day
-3. 5-6 main activities with times, covering:
-   - Morning coffee/breakfast
-   - Cultural/sightseeing activity
-   - Lunch
-   - Afternoon activity
-   - Dinner
-   - Optional evening activity
-4. 2-4 alternative options for that day
+1. A theme (e.g., "Shibuya & Harajuku")
+2. Brief description (1 sentence)
+3. 4-5 main activities with times (include exactly ${coffeeShops} coffee shop${coffeeShops !== 1 ? 's' : ''} per day)
+4. 2 alternative options
 
-For EACH location/activity, provide:
-- Name (include local name if applicable)
-- Approximate time slot (e.g., "9:00 AM")
-- Appropriate emoji (☕ coffee, 🍜 food, ⛩️ temple, 🛍️ shopping, etc.)
-- Brief description (1-2 sentences)
-- Rating (if known, e.g., "4.5")
-- Price range (use local currency symbols like ¥¥ or $$$)
-- Approximate latitude and longitude for mapping
+Keep descriptions SHORT (under 100 characters each). Organize days by neighborhood.
 
-Organize days geographically - each day should focus on 1-2 neighborhoods to minimize transit.
+CRITICAL: Keep the response compact to avoid truncation.
 
 Return your response as valid JSON matching this exact structure:
 {

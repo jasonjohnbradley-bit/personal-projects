@@ -37,7 +37,7 @@ export interface Location {
 
 export interface PlanPreferences {
   cuisineTypes: string[];
-  coffeeInterest: 'none' | 'low' | 'medium' | 'high';
+  coffeeShopsPerDay: number;
   shoppingPreferences: string[];
   culturalInterests: string[];
   activityLevel: 'relaxed' | 'moderate' | 'packed';

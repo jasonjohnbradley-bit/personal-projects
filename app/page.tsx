@@ -35,7 +35,7 @@ export default function Home() {
     numDays: 3,
     accommodationLocation: '',
     cuisineTypes: [] as string[],
-    coffeeInterest: 'medium' as 'none' | 'low' | 'medium' | 'high',
+    coffeeShopsPerDay: 1,
     culturalInterests: [] as string[],
     shoppingPreferences: [] as string[],
     activityLevel: 'moderate' as 'relaxed' | 'moderate' | 'packed',
@@ -84,7 +84,7 @@ export default function Home() {
           accommodationLocation: formData.accommodationLocation || undefined,
           preferences: {
             cuisineTypes: formData.cuisineTypes,
-            coffeeInterest: formData.coffeeInterest,
+            coffeeShopsPerDay: formData.coffeeShopsPerDay,
             culturalInterests: formData.culturalInterests,
             shoppingPreferences: formData.shoppingPreferences,
             activityLevel: formData.activityLevel,
@@ -195,19 +195,17 @@ export default function Home() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Coffee Interest</label>
+              <label className="form-label">Coffee Shops Per Day</label>
               <div className="checkbox-group">
-                {(['none', 'low', 'medium', 'high'] as const).map(level => (
-                  <label key={level} className="checkbox-label">
+                {[0, 1, 2, 3].map(count => (
+                  <label key={count} className="checkbox-label">
                     <input
                       type="radio"
-                      name="coffeeInterest"
-                      checked={formData.coffeeInterest === level}
-                      onChange={() => setFormData(prev => ({ ...prev, coffeeInterest: level }))}
+                      name="coffeeShopsPerDay"
+                      checked={formData.coffeeShopsPerDay === count}
+                      onChange={() => setFormData(prev => ({ ...prev, coffeeShopsPerDay: count }))}
                     />
-                    {level === 'none' ? 'Not interested' :
-                     level === 'low' ? 'Occasionally' :
-                     level === 'medium' ? 'Daily coffee lover' : 'Specialty coffee enthusiast'}
+                    {count === 0 ? 'None' : count === 1 ? '1 coffee shop' : `${count} coffee shops`}
                   </label>
                 ))}
               </div>

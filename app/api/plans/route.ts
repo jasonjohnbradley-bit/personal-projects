@@ -27,7 +27,8 @@ export async function POST(request: NextRequest) {
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
+      max_tokens: 16384,
+      system: 'You are a travel planning assistant. Return ONLY valid JSON with no markdown. Keep all text descriptions under 100 characters. Be concise.',
       messages: [{ role: 'user', content: prompt }],
     });
 
