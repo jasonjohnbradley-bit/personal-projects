@@ -10,13 +10,22 @@ interface AlternativeCardProps {
 }
 
 export function AlternativeCard({ activity, onRemove, onEdit, isDragging }: AlternativeCardProps) {
+  const sourceClass = activity.source ? `source-${activity.source}` : '';
+
   return (
     <div
-      className={`alternative-item ${isDragging ? 'dragging' : ''}`}
+      className={`alternative-item ${isDragging ? 'dragging' : ''} ${sourceClass}`}
       draggable="true"
       data-id={activity.id}
       data-type="alternative"
+      data-source={activity.source}
     >
+      {/* Source indicator badge */}
+      {activity.source === 'user' && (
+        <div className="source-badge user-badge small" title="Your recommendation">
+          ★
+        </div>
+      )}
       <button
         className="edit-btn"
         onClick={(e) => {

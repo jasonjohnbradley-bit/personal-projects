@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FileUpload } from '@/components/ui/FileUpload';
+import { FileUpload, type EnrichedPlace } from '@/components/ui/FileUpload';
 
 const loadingSteps = [
   { text: 'Researching destinations...', duration: 10000 },
@@ -40,7 +40,7 @@ export default function Home() {
     culturalInterests: [] as string[],
     shoppingPreferences: [] as string[],
     activityLevel: 'moderate' as 'relaxed' | 'moderate' | 'packed',
-    userRecommendations: '',
+    userRecommendations: [] as string[],
   });
 
   // Cycle through loading steps
@@ -71,17 +71,32 @@ export default function Home() {
     }));
   };
 
-  const handlePlacesExtracted = useCallback((places: string[]) => {
+  const handlePlacesExtracted = useCallback((places: EnrichedPlace[] | string[]) => {
     setFormData(prev => {
-      // Merge with existing recommendations
-      const existing = prev.userRecommendations
-        ? prev.userRecommendations.split(',').map(s => s.trim()).filter(Boolean)
-        : [];
-      const merged = [...new Set([...existing, ...places])];
-      return {
-        ...prev,
-        userRecommendations: merged.join(', '),
-      };
+      // Format places with all available details
+      const formattedPlaces = places.map(place => {
+        if (typeof place === 'string') {
+          return place;
+        }
+        // Format enriched place - use semicolons to avoid comma conflicts
+        let formatted = place.name;
+        if (place.type) {
+          formatted = `${place.type}: ${formatted}`;
+        }
+        const details: string[] = [];
+        if (place.rating) details.push(`${place.rating}★`);
+        if (place.price) details.push(place.price);
+        if (place.address) details.push(place.address);
+        if (place.notes) details.push(place.notes);
+        if (details.length > 0) {
+          formatted += ` (${details.join('; ')})`;
+        }
+        return formatted;
+      });
+
+      // Merge with existing as array (no comma join/split)
+      const merged = [...new Set([...prev.userRecommendations, ...formattedPlaces])];
+      return { ...prev, userRecommendations: merged };
     });
   }, []);
 
@@ -103,8 +118,8 @@ export default function Home() {
             culturalInterests: formData.culturalInterests,
             shoppingPreferences: formData.shoppingPreferences,
             activityLevel: formData.activityLevel,
-            userRecommendations: formData.userRecommendations
-              ? formData.userRecommendations.split(',').map(s => s.trim()).filter(Boolean)
+            userRecommendations: formData.userRecommendations.length > 0
+              ? formData.userRecommendations
               : undefined,
           },
         }),
@@ -149,7 +164,7 @@ export default function Home() {
       <div className="header">
         <h1>Travel Itinerary Planner</h1>
         <p>Create beautiful, interactive travel itineraries with AI-powered suggestions</p>
-        <Link href="/dashboard" className="btn btn-secondary" style={{ marginTop: '1rem' }}>
+        <Link href="/dashboard" className="btn btn-secondary" style={{ marginTop: '3rem', display: 'inline-block' }}>
           View My Itineraries
         </Link>
       </div>
@@ -285,14 +300,18 @@ export default function Home() {
 
               <FileUpload
                 onPlacesExtracted={handlePlacesExtracted}
+                destination={formData.destination}
                 disabled={isLoading}
               />
 
               <textarea
                 className="form-input form-textarea"
                 placeholder="Enter specific places you want to visit, separated by commas. e.g., Ichiran Ramen, Meiji Shrine, Tsukiji Outer Market"
-                value={formData.userRecommendations}
-                onChange={e => setFormData(prev => ({ ...prev, userRecommendations: e.target.value }))}
+                value={formData.userRecommendations.join(', ')}
+                onChange={e => setFormData(prev => ({
+                  ...prev,
+                  userRecommendations: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                }))}
                 style={{ marginTop: '0.75rem' }}
               />
               <p style={{ fontSize: '0.85rem', color: 'var(--ghibli-text-muted)', marginTop: '0.5rem' }}>

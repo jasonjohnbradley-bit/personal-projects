@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseCSV } from '@/lib/parsers/csvParser';
+import { parseCSV, type ParsedPlace } from '@/lib/parsers/csvParser';
 import { parsePDF } from '@/lib/parsers/pdfParser';
 import { parseImage } from '@/lib/parsers/imageParser';
+import { enrichPlacesWithClaude, type EnrichedPlace } from '@/lib/parsers/enrichPlaces';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -9,6 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const destination = formData.get('destination') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -28,7 +30,8 @@ export async function POST(request: NextRequest) {
     const fileName = file.name.toLowerCase();
     const mimeType = file.type;
 
-    let places: string[] = [];
+    let places: ParsedPlace[] | string[] = [];
+    let enrichedPlaces: EnrichedPlace[] | null = null;
     let errors: string[] = [];
 
     // Route to appropriate parser based on file type
@@ -37,6 +40,18 @@ export async function POST(request: NextRequest) {
       const result = parseCSV(text);
       places = result.places;
       errors = result.errors;
+
+      // Enrich CSV places with Claude AI if we have places and a destination
+      if (result.places.length > 0) {
+        try {
+          // Use provided destination or try to detect from file/default to Tokyo
+          const enrichDestination = destination || 'Tokyo, Japan';
+          enrichedPlaces = await enrichPlacesWithClaude(result.places, enrichDestination);
+        } catch (enrichError) {
+          console.error('Enrichment failed, returning basic places:', enrichError);
+          // Continue with non-enriched places
+        }
+      }
 
     } else if (fileName.endsWith('.pdf') || mimeType === 'application/pdf') {
       const result = await parsePDF(buffer);
@@ -83,10 +98,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Return enriched places if available, otherwise basic places
+    if (enrichedPlaces) {
+      return NextResponse.json({
+        success: true,
+        places: enrichedPlaces,
+        count: enrichedPlaces.length,
+        enriched: true,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    }
+
+    // For non-CSV files or failed enrichment, return string array for backwards compatibility
+    const placeStrings = Array.isArray(places) && places.length > 0 && typeof places[0] === 'object'
+      ? (places as ParsedPlace[]).map(p => p.type ? `${p.type}: ${p.name}` : p.name)
+      : places as string[];
+
     return NextResponse.json({
       success: true,
-      places,
-      count: places.length,
+      places: placeStrings,
+      count: placeStrings.length,
+      enriched: false,
       errors: errors.length > 0 ? errors : undefined,
     });
 

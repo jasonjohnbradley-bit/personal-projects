@@ -2,16 +2,29 @@
 
 import { useState, useRef, useCallback } from 'react';
 
+export interface EnrichedPlace {
+  name: string;
+  type?: string;
+  link?: string;
+  notes?: string;
+  lat?: number;
+  lng?: number;
+  rating?: string;
+  price?: string;
+  address?: string;
+}
+
 interface FileUploadProps {
-  onPlacesExtracted: (places: string[]) => void;
+  onPlacesExtracted: (places: EnrichedPlace[] | string[]) => void;
+  destination?: string;
   disabled?: boolean;
 }
 
-export function FileUpload({ onPlacesExtracted, disabled }: FileUploadProps) {
+export function FileUpload({ onPlacesExtracted, destination, disabled }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<{ count: number } | null>(null);
+  const [lastResult, setLastResult] = useState<{ count: number; enriched: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(async (file: File) => {
@@ -22,6 +35,9 @@ export function FileUpload({ onPlacesExtracted, disabled }: FileUploadProps) {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (destination) {
+        formData.append('destination', destination);
+      }
 
       const response = await fetch('/api/upload-recommendations', {
         method: 'POST',
@@ -36,7 +52,10 @@ export function FileUpload({ onPlacesExtracted, disabled }: FileUploadProps) {
 
       if (data.places && data.places.length > 0) {
         onPlacesExtracted(data.places);
-        setLastResult({ count: data.places.length });
+        setLastResult({
+          count: data.places.length,
+          enriched: data.enriched || false
+        });
       } else {
         setError('No place names found in the file');
       }
@@ -50,7 +69,7 @@ export function FileUpload({ onPlacesExtracted, disabled }: FileUploadProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [onPlacesExtracted]);
+  }, [onPlacesExtracted, destination]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -126,7 +145,7 @@ export function FileUpload({ onPlacesExtracted, disabled }: FileUploadProps) {
         {isProcessing ? (
           <div className="upload-status">
             <span className="spinner-small" />
-            <p>Extracting place names...</p>
+            <p>Extracting and enriching places...</p>
           </div>
         ) : (
           <div className="upload-content">
@@ -148,6 +167,7 @@ export function FileUpload({ onPlacesExtracted, disabled }: FileUploadProps) {
       {lastResult && (
         <p className="upload-success">
           Added {lastResult.count} place{lastResult.count !== 1 ? 's' : ''} from file
+          {lastResult.enriched && ' with location details'}
         </p>
       )}
     </div>

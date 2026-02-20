@@ -22,7 +22,13 @@ export function useDragAndDrop({ onMove, setDraggingId }: UseDragAndDropOptions)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    // Set dropEffect based on what's allowed (move for activities, copy for AI suggestions)
+    const allowed = e.dataTransfer.effectAllowed;
+    if (allowed === 'copy' || allowed === 'copyMove') {
+      e.dataTransfer.dropEffect = 'copy';
+    } else {
+      e.dataTransfer.dropEffect = 'move';
+    }
 
     const target = e.currentTarget as HTMLElement;
     target.classList.add('drag-over');

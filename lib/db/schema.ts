@@ -30,6 +30,7 @@ export const activities = pgTable('activities', {
   id: text('id').primaryKey(),
   dayId: uuid('day_id').references(() => days.id, { onDelete: 'cascade' }).notNull(),
   type: text('type').notNull().$type<'main' | 'alternative' | 'removed'>(),
+  source: text('source').notNull().$type<'user' | 'ai' | 'custom'>().default('ai'),
   sortOrder: integer('sort_order').notNull(),
   time: text('time'),
   emoji: text('emoji'),
@@ -38,8 +39,27 @@ export const activities = pgTable('activities', {
   rating: text('rating'),
   price: text('price'),
   mapUrl: text('map_url'),
+  lat: real('lat'),
+  lng: real('lng'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// AI-generated suggestions pool (day-specific)
+export const aiSuggestions = pgTable('ai_suggestions', {
+  id: text('id').primaryKey(),
+  planId: text('plan_id').references(() => plans.id, { onDelete: 'cascade' }).notNull(),
+  dayNumber: integer('day_number').notNull(),
+  emoji: text('emoji'),
+  title: text('title').notNull(),
+  details: text('details'),
+  rating: text('rating'),
+  price: text('price'),
+  mapUrl: text('map_url'),
+  lat: real('lat'),
+  lng: real('lng'),
+  category: text('category'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Map locations
@@ -59,6 +79,14 @@ export const locations = pgTable('locations', {
 export const plansRelations = relations(plans, ({ many }) => ({
   days: many(days),
   locations: many(locations),
+  aiSuggestions: many(aiSuggestions),
+}));
+
+export const aiSuggestionsRelations = relations(aiSuggestions, ({ one }) => ({
+  plan: one(plans, {
+    fields: [aiSuggestions.planId],
+    references: [plans.id],
+  }),
 }));
 
 export const daysRelations = relations(days, ({ one, many }) => ({

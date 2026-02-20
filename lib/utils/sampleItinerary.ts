@@ -89,6 +89,7 @@ export function generateSampleItinerary(
 
       activities.push({
         type: 'main' as const,
+        source: 'ai' as const,
         sortOrder: index,
         time: slot.time,
         emoji: slot.emoji,
@@ -120,6 +121,7 @@ export function generateSampleItinerary(
       const alt = getRandomItem(defaultActivities[cat]);
       alternatives.push({
         type: 'alternative' as const,
+        source: 'ai' as const,
         sortOrder: index,
         time: `${cat.charAt(0).toUpperCase() + cat.slice(1)} Alternative`,
         emoji: cat === 'coffee' ? '☕' : cat === 'lunch' ? '🍜' : '🍽️',
@@ -139,5 +141,5 @@ export function generateSampleItinerary(
     });
   }
 
-  return { days, locations };
+  return { days, locations, aiSuggestions: [] };
 }

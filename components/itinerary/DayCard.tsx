@@ -51,6 +51,7 @@ export function DayCard({
   const handleAdd = async (data: Partial<Activity>) => {
     await onAdd(day.id, {
       type: 'main',
+      source: 'custom',
       time: data.time || '12:00 PM',
       emoji: data.emoji || '⭐',
       title: data.title || '',

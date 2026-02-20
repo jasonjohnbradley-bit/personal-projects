@@ -11,13 +11,27 @@ interface ActivityCardProps {
 }
 
 export function ActivityCard({ activity, onRemove, onEdit, isDragging, justDropped }: ActivityCardProps) {
+  const sourceClass = activity.source ? `source-${activity.source}` : '';
+
   return (
     <div
-      className={`activity ${isDragging ? 'dragging' : ''} ${justDropped ? 'just-dropped' : ''}`}
+      className={`activity ${isDragging ? 'dragging' : ''} ${justDropped ? 'just-dropped' : ''} ${sourceClass}`}
       draggable="true"
       data-id={activity.id}
       data-type={activity.type}
+      data-source={activity.source}
     >
+      {/* Source indicator badge */}
+      {activity.source === 'user' && (
+        <div className="source-badge user-badge" title="Your recommendation">
+          ★
+        </div>
+      )}
+      {activity.source === 'ai' && (
+        <div className="source-badge ai-badge" title="AI suggestion">
+          AI
+        </div>
+      )}
       <div className="drag-handle">
         <span className="ghibli-icon">⋮⋮</span>
       </div>

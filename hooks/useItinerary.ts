@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Plan, Day, Activity, UpdateActivitiesInput } from '@/lib/types/itinerary';
+import type { Plan, Day, Activity, UpdateActivitiesInput, AISuggestion } from '@/lib/types/itinerary';
 import { recalculateActivityTimes } from '@/lib/utils/timeCalculation';
 
 interface UseItineraryReturn {
   days: Day[];
+  aiSuggestions: AISuggestion[];
   isSaving: boolean;
   lastSaved: Date | null;
   draggingId: string | null;
@@ -16,12 +17,16 @@ interface UseItineraryReturn {
   moveActivity: (activityId: string, targetDayId: string, targetType: 'main' | 'alternative', targetIndex?: number) => void;
   updateActivity: (activityId: string, data: Partial<Activity>) => Promise<void>;
   addActivity: (dayId: string, data: Omit<Activity, 'id' | 'dayId' | 'sortOrder'>) => Promise<void>;
+  addSuggestionToDay: (suggestion: AISuggestion, dayId: string, targetIndex?: number) => Promise<void>;
+  refreshSuggestions: (dayNumber: number) => Promise<void>;
+  removeSuggestion: (suggestionId: string) => void;
   resetToOriginal: () => void;
   exportItinerary: () => void;
 }
 
 export function useItinerary(plan: Plan): UseItineraryReturn {
   const [days, setDays] = useState<Day[]>(plan.days);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>(plan.aiSuggestions || []);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -313,6 +318,104 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
     URL.revokeObjectURL(url);
   }, [days, plan.destination, plan.numDays]);
 
+  // AI Suggestions management
+  const addSuggestionToDay = useCallback(async (
+    suggestion: AISuggestion,
+    dayId: string,
+    targetIndex?: number
+  ) => {
+    const day = days.find(d => d.id === dayId);
+    if (!day) return;
+
+    try {
+      // Call API to convert suggestion to activity
+      const response = await fetch(`/api/suggestions/${plan.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          suggestionId: suggestion.id,
+          dayId,
+          sortOrder: targetIndex ?? day.activities.length,
+        }),
+      });
+
+      const { activityId } = await response.json();
+
+      // Create new activity from suggestion
+      const newActivity: Activity = {
+        id: activityId,
+        dayId,
+        type: 'main',
+        source: 'ai',
+        sortOrder: targetIndex ?? day.activities.length,
+        time: '',
+        emoji: suggestion.emoji || '⭐',
+        title: suggestion.title,
+        details: suggestion.details || '',
+        rating: suggestion.rating,
+        price: suggestion.price,
+        mapUrl: suggestion.mapUrl,
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+      };
+
+      // Update local state
+      setDays(prevDays => prevDays.map(d => {
+        if (d.id !== dayId) return d;
+
+        const activities = [...d.activities];
+        if (targetIndex !== undefined) {
+          activities.splice(targetIndex, 0, newActivity);
+        } else {
+          activities.push(newActivity);
+        }
+
+        return {
+          ...d,
+          activities: recalculateActivityTimes(activities),
+        };
+      }));
+
+      // Remove from suggestions
+      setAiSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
+
+      // Set just dropped for animation
+      setJustDroppedId(activityId);
+      setTimeout(() => setJustDroppedId(null), 500);
+
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error('Failed to add suggestion:', error);
+    }
+  }, [days, plan.id]);
+
+  const refreshSuggestions = useCallback(async (dayNumber: number) => {
+    try {
+      const response = await fetch(`/api/suggestions/${plan.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dayNumber }),
+      });
+
+      const { suggestions: newSuggestions } = await response.json();
+
+      if (newSuggestions && Array.isArray(newSuggestions)) {
+        setAiSuggestions(prev => [...prev, ...newSuggestions]);
+      }
+    } catch (error) {
+      console.error('Failed to refresh suggestions:', error);
+    }
+  }, [plan.id]);
+
+  const removeSuggestion = useCallback((suggestionId: string) => {
+    setAiSuggestions(prev => prev.filter(s => s.id !== suggestionId));
+
+    // Also delete from server (fire and forget)
+    fetch(`/api/suggestions/${plan.id}?suggestionId=${suggestionId}`, {
+      method: 'DELETE',
+    }).catch(err => console.error('Failed to delete suggestion:', err));
+  }, [plan.id]);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -324,6 +427,7 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
 
   return {
     days,
+    aiSuggestions,
     isSaving,
     lastSaved,
     draggingId,
@@ -334,6 +438,9 @@ export function useItinerary(plan: Plan): UseItineraryReturn {
     moveActivity,
     updateActivity,
     addActivity,
+    addSuggestionToDay,
+    refreshSuggestions,
+    removeSuggestion,
     resetToOriginal,
     exportItinerary,
   };

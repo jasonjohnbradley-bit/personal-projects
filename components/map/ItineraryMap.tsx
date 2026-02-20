@@ -92,6 +92,31 @@ export function ItineraryMap({ locations, center }: ItineraryMapProps) {
         const bounds = L.latLngBounds(locations.map(loc => [loc.lat, loc.lng]));
         map.fitBounds(bounds, { padding: [50, 50] });
       }
+
+      // Fix grey tiles - multiple invalidateSize calls for reliability
+      const invalidateTimes = [100, 250, 500, 1000];
+      invalidateTimes.forEach(delay => {
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.invalidateSize();
+          }
+        }, delay);
+      });
+
+      // Watch for container resize
+      const resizeObserver = new ResizeObserver(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize();
+        }
+      });
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+
+      // Cleanup function
+      return () => {
+        resizeObserver.disconnect();
+      };
     });
 
     return () => {
@@ -103,15 +128,7 @@ export function ItineraryMap({ locations, center }: ItineraryMapProps) {
   }, [locations, center]);
 
   return (
-    <>
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossOrigin=""
-      />
-      <div ref={containerRef} id="map" style={{ height: '500px', borderRadius: '15px' }} />
-    </>
+    <div ref={containerRef} id="map" style={{ height: '500px', width: '100%', borderRadius: '15px' }} />
   );
 }
 

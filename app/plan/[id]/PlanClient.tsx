@@ -3,11 +3,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import type { Plan } from '@/lib/types/itinerary';
+import type { Plan, AISuggestion } from '@/lib/types/itinerary';
 import { useItinerary } from '@/hooks/useItinerary';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { ControlBar } from '@/components/itinerary/ControlBar';
 import { DayCard } from '@/components/itinerary/DayCard';
+import { AISuggestionsPanel } from '@/components/itinerary/AISuggestionsPanel';
 import { MapFilters } from '@/components/map/MapFilters';
 import { StatsCards } from '@/components/map/StatsCards';
 import { Toast } from '@/components/ui/Toast';
@@ -29,13 +30,14 @@ interface PlanClientProps {
 }
 
 export function PlanClient({ plan }: PlanClientProps) {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(1); // Start on Day 1, not Map
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   const {
     days,
+    aiSuggestions,
     isSaving,
     lastSaved,
     draggingId,
@@ -46,6 +48,9 @@ export function PlanClient({ plan }: PlanClientProps) {
     moveActivity,
     updateActivity,
     addActivity,
+    addSuggestionToDay,
+    refreshSuggestions,
+    removeSuggestion,
     resetToOriginal,
     exportItinerary,
   } = useItinerary(plan);
@@ -83,6 +88,61 @@ export function PlanClient({ plan }: PlanClientProps) {
     showToast('📥 Itinerary exported!');
   }, [exportItinerary, showToast]);
 
+  // Handle drag from AI suggestions panel
+  const handleSuggestionDragStart = useCallback((e: React.DragEvent, suggestion: AISuggestion) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'ai-suggestion',
+      suggestion,
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+  }, []);
+
+
+  // Extended drop handler that handles activities, AI suggestions, and unused places
+  const handleExtendedDrop = useCallback((
+    e: React.DragEvent,
+    dayId: string,
+    containerType: 'main' | 'alternative'
+  ) => {
+    try {
+      const data = e.dataTransfer.getData('application/json');
+      if (data) {
+        const parsed = JSON.parse(data);
+
+        // Handle AI suggestion drop
+        if (parsed.type === 'ai-suggestion' && parsed.suggestion) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const container = e.currentTarget as HTMLElement;
+          const cards = container.querySelectorAll('.activity, .alternative-item');
+          let targetIndex = cards.length;
+
+          cards.forEach((card, index) => {
+            const rect = card.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            if (e.clientY < midY && index < targetIndex) {
+              targetIndex = index;
+            }
+          });
+
+          addSuggestionToDay(parsed.suggestion, dayId, targetIndex);
+          showToast('✨ Added AI suggestion to schedule');
+          return;
+        }
+
+      }
+    } catch {
+      // Not JSON data, proceed with normal drop
+    }
+
+    // Fall back to normal activity drop handling
+    handleDrop(e, dayId, containerType);
+  }, [addSuggestionToDay, addActivity, handleDrop, showToast]);
+
+  // Get active day number for suggestions panel
+  const activeDayNumber = activeTab > 0 ? activeTab : 1;
+
   return (
     <div onDragEnd={handleDragEnd}>
       <div className="header">
@@ -118,50 +178,66 @@ export function PlanClient({ plan }: PlanClientProps) {
         ))}
       </div>
 
-      <div className="container">
-        {/* Map Tab */}
-        <div className={`tab-content ${activeTab === 0 ? 'active' : ''}`}>
-          <StatsCards locations={enhancedLocations} />
-          <MapFilters
-            categories={availableCategories}
-            days={availableDays}
-            selectedCategories={selectedCategories}
-            selectedDays={selectedDays}
-            onCategoryChange={setSelectedCategories}
-            onDayChange={setSelectedDays}
-          />
-          <ItineraryMap locations={filteredLocations} />
+      <div className="content-with-panel">
+        <div className="main-content">
+          {/* Map Tab */}
+          <div className={`tab-content ${activeTab === 0 ? 'active' : ''}`}>
+            <StatsCards locations={enhancedLocations} />
+            <MapFilters
+              categories={availableCategories}
+              days={availableDays}
+              selectedCategories={selectedCategories}
+              selectedDays={selectedDays}
+              onCategoryChange={setSelectedCategories}
+              onDayChange={setSelectedDays}
+            />
+            <ItineraryMap locations={filteredLocations} />
+          </div>
+
+          {/* Day Tabs */}
+          {days.map((day, index) => (
+            <div
+              key={day.id}
+              className={`tab-content ${activeTab === index + 1 ? 'active' : ''}`}
+            >
+              <div className="tip-card">
+                <span className="tip-icon">💡</span>
+                <div className="tip-content">
+                  <strong>Tip:</strong> Your places (★) are guaranteed in the schedule.
+                  Drag AI suggestions from the panel to add them. Click ✎ to edit or ✕ to remove.
+                </div>
+              </div>
+
+              <DayCard
+                day={day}
+                draggingId={draggingId}
+                justDroppedId={justDroppedId}
+                onRemove={removeActivity}
+                onRestore={restoreActivity}
+                onUpdate={updateActivity}
+                onAdd={addActivity}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleExtendedDrop}
+              />
+            </div>
+          ))}
         </div>
 
-        {/* Day Tabs */}
-        {days.map((day, index) => (
-          <div
-            key={day.id}
-            className={`tab-content ${activeTab === index + 1 ? 'active' : ''}`}
-          >
-            <div className="tip-card">
-              <span className="tip-icon">💡</span>
-              <div className="tip-content">
-                <strong>Tip:</strong> Drag activities to reorder them, or drag alternatives
-                into the main schedule. Click ✎ to edit or ✕ to remove items.
-              </div>
-            </div>
-
-            <DayCard
-              day={day}
-              draggingId={draggingId}
-              justDroppedId={justDroppedId}
-              onRemove={removeActivity}
-              onRestore={restoreActivity}
-              onUpdate={updateActivity}
-              onAdd={addActivity}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+        {/* Side Panels - only show on day tabs */}
+        {activeTab > 0 && (
+          <div className="side-panels">
+            <AISuggestionsPanel
+              planId={plan.id}
+              activeDayNumber={activeDayNumber}
+              suggestions={aiSuggestions}
+              onSuggestionDragStart={handleSuggestionDragStart}
+              onRefreshSuggestions={refreshSuggestions}
+              onRemoveSuggestion={removeSuggestion}
             />
           </div>
-        ))}
+        )}
       </div>
 
       {toastMessage && (

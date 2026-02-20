@@ -1,7 +1,10 @@
+export type ActivitySource = 'user' | 'ai' | 'custom';
+
 export interface Activity {
   id: string;
   dayId: string;
   type: 'main' | 'alternative' | 'removed';
+  source: ActivitySource;
   sortOrder: number;
   time: string;
   emoji: string;
@@ -10,6 +13,23 @@ export interface Activity {
   rating?: string;
   price?: string;
   mapUrl?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface AISuggestion {
+  id: string;
+  planId: string;
+  dayNumber: number;
+  emoji: string;
+  title: string;
+  details: string;
+  rating?: string;
+  price?: string;
+  mapUrl?: string;
+  lat?: number;
+  lng?: number;
+  category?: string;
 }
 
 export interface Day {
@@ -56,6 +76,7 @@ export interface Plan {
   preferences?: PlanPreferences;
   days: Day[];
   locations: Location[];
+  aiSuggestions: AISuggestion[];
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +108,7 @@ export interface GeneratedItinerary {
     alternatives: Omit<Activity, 'id' | 'dayId'>[];
   }[];
   locations: Omit<Location, 'id' | 'planId'>[];
+  aiSuggestions: Omit<AISuggestion, 'id' | 'planId'>[];
 }
 
 export interface PlanSummary {

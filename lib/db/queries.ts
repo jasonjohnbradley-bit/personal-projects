@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDb } from './index';
-import { plans, days, activities, locations } from './schema';
-import type { Plan, Activity, Day, Location, GeneratedItinerary, PlanPreferences, PlanSummary } from '../types/itinerary';
+import { plans, days, activities, locations, aiSuggestions } from './schema';
+import type { Plan, Activity, Day, Location, GeneratedItinerary, PlanPreferences, PlanSummary, AISuggestion, ActivitySource } from '../types/itinerary';
 import { generateActivityId } from '../utils/nanoid';
 
 export async function createPlan(
@@ -39,6 +39,7 @@ export async function createPlan(
         id: generateActivityId(),
         dayId,
         type: 'main',
+        source: activity.source || 'ai',
         sortOrder: i,
         time: activity.time,
         emoji: activity.emoji,
@@ -47,6 +48,8 @@ export async function createPlan(
         rating: activity.rating,
         price: activity.price,
         mapUrl: activity.mapUrl,
+        lat: activity.lat,
+        lng: activity.lng,
       });
     }
 
@@ -57,6 +60,7 @@ export async function createPlan(
         id: generateActivityId(),
         dayId,
         type: 'alternative',
+        source: alt.source || 'ai',
         sortOrder: i,
         time: alt.time,
         emoji: alt.emoji,
@@ -65,6 +69,28 @@ export async function createPlan(
         rating: alt.rating,
         price: alt.price,
         mapUrl: alt.mapUrl,
+        lat: alt.lat,
+        lng: alt.lng,
+      });
+    }
+  }
+
+  // Insert AI suggestions
+  if (itinerary.aiSuggestions) {
+    for (const suggestion of itinerary.aiSuggestions) {
+      await getDb().insert(aiSuggestions).values({
+        id: generateActivityId(),
+        planId: id,
+        dayNumber: suggestion.dayNumber,
+        emoji: suggestion.emoji,
+        title: suggestion.title,
+        details: suggestion.details,
+        rating: suggestion.rating,
+        price: suggestion.price,
+        mapUrl: suggestion.mapUrl,
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        category: suggestion.category,
       });
     }
   }
@@ -97,6 +123,7 @@ export async function getPlanById(id: string): Promise<Plan | null> {
         orderBy: (days, { asc }) => [asc(days.dayNumber)],
       },
       locations: true,
+      aiSuggestions: true,
     },
   });
 
@@ -118,6 +145,7 @@ export async function getPlanById(id: string): Promise<Plan | null> {
           id: a.id,
           dayId: a.dayId,
           type: a.type as 'main',
+          source: (a.source || 'ai') as ActivitySource,
           sortOrder: a.sortOrder,
           time: a.time || '',
           emoji: a.emoji || '',
@@ -126,6 +154,8 @@ export async function getPlanById(id: string): Promise<Plan | null> {
           rating: a.rating || undefined,
           price: a.price || undefined,
           mapUrl: a.mapUrl || undefined,
+          lat: a.lat || undefined,
+          lng: a.lng || undefined,
         })),
       alternatives: dayActivities
         .filter(a => a.type === 'alternative')
@@ -134,6 +164,7 @@ export async function getPlanById(id: string): Promise<Plan | null> {
           id: a.id,
           dayId: a.dayId,
           type: a.type as 'alternative',
+          source: (a.source || 'ai') as ActivitySource,
           sortOrder: a.sortOrder,
           time: a.time || '',
           emoji: a.emoji || '',
@@ -142,6 +173,8 @@ export async function getPlanById(id: string): Promise<Plan | null> {
           rating: a.rating || undefined,
           price: a.price || undefined,
           mapUrl: a.mapUrl || undefined,
+          lat: a.lat || undefined,
+          lng: a.lng || undefined,
         })),
       removed: dayActivities
         .filter(a => a.type === 'removed')
@@ -150,6 +183,7 @@ export async function getPlanById(id: string): Promise<Plan | null> {
           id: a.id,
           dayId: a.dayId,
           type: a.type as 'removed',
+          source: (a.source || 'ai') as ActivitySource,
           sortOrder: a.sortOrder,
           time: a.time || '',
           emoji: a.emoji || '',
@@ -158,6 +192,8 @@ export async function getPlanById(id: string): Promise<Plan | null> {
           rating: a.rating || undefined,
           price: a.price || undefined,
           mapUrl: a.mapUrl || undefined,
+          lat: a.lat || undefined,
+          lng: a.lng || undefined,
         })),
     };
   });
@@ -174,6 +210,21 @@ export async function getPlanById(id: string): Promise<Plan | null> {
     rating: loc.rating || undefined,
   }));
 
+  const transformedSuggestions: AISuggestion[] = (plan.aiSuggestions || []).map(s => ({
+    id: s.id,
+    planId: s.planId,
+    dayNumber: s.dayNumber,
+    emoji: s.emoji || '',
+    title: s.title,
+    details: s.details || '',
+    rating: s.rating || undefined,
+    price: s.price || undefined,
+    mapUrl: s.mapUrl || undefined,
+    lat: s.lat || undefined,
+    lng: s.lng || undefined,
+    category: s.category || undefined,
+  }));
+
   return {
     id: plan.id,
     destination: plan.destination,
@@ -184,6 +235,7 @@ export async function getPlanById(id: string): Promise<Plan | null> {
     preferences: plan.preferences || undefined,
     days: transformedDays,
     locations: transformedLocations,
+    aiSuggestions: transformedSuggestions,
     createdAt: plan.createdAt.toISOString(),
     updatedAt: plan.updatedAt.toISOString(),
   };
@@ -256,6 +308,7 @@ export async function createActivity(
   dayId: string,
   data: {
     type: 'main' | 'alternative';
+    source?: ActivitySource;
     sortOrder: number;
     time: string;
     emoji: string;
@@ -264,6 +317,8 @@ export async function createActivity(
     rating?: string;
     price?: string;
     mapUrl?: string;
+    lat?: number;
+    lng?: number;
   }
 ): Promise<string> {
   const id = `custom_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -271,6 +326,7 @@ export async function createActivity(
     id,
     dayId,
     type: data.type,
+    source: data.source || 'custom',
     sortOrder: data.sortOrder,
     time: data.time,
     emoji: data.emoji,
@@ -279,6 +335,104 @@ export async function createActivity(
     rating: data.rating || null,
     price: data.price || null,
     mapUrl: data.mapUrl || null,
+    lat: data.lat || null,
+    lng: data.lng || null,
   });
   return id;
+}
+
+// AI Suggestions management
+export async function getAISuggestionsForPlan(planId: string, dayNumber?: number): Promise<AISuggestion[]> {
+  const query = dayNumber !== undefined
+    ? and(eq(aiSuggestions.planId, planId), eq(aiSuggestions.dayNumber, dayNumber))
+    : eq(aiSuggestions.planId, planId);
+
+  const suggestions = await getDb().query.aiSuggestions.findMany({
+    where: query,
+    orderBy: (s, { asc }) => [asc(s.dayNumber)],
+  });
+
+  return suggestions.map(s => ({
+    id: s.id,
+    planId: s.planId,
+    dayNumber: s.dayNumber,
+    emoji: s.emoji || '',
+    title: s.title,
+    details: s.details || '',
+    rating: s.rating || undefined,
+    price: s.price || undefined,
+    mapUrl: s.mapUrl || undefined,
+    lat: s.lat || undefined,
+    lng: s.lng || undefined,
+    category: s.category || undefined,
+  }));
+}
+
+export async function addAISuggestions(
+  planId: string,
+  suggestions: Omit<AISuggestion, 'id' | 'planId'>[]
+): Promise<AISuggestion[]> {
+  const savedSuggestions: AISuggestion[] = [];
+
+  for (const suggestion of suggestions) {
+    const id = generateActivityId();
+    await getDb().insert(aiSuggestions).values({
+      id,
+      planId,
+      dayNumber: suggestion.dayNumber,
+      emoji: suggestion.emoji,
+      title: suggestion.title,
+      details: suggestion.details,
+      rating: suggestion.rating,
+      price: suggestion.price,
+      mapUrl: suggestion.mapUrl,
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+      category: suggestion.category,
+    });
+    savedSuggestions.push({ id, planId, ...suggestion });
+  }
+
+  return savedSuggestions;
+}
+
+export async function convertSuggestionToActivity(
+  suggestionId: string,
+  dayId: string,
+  sortOrder: number
+): Promise<string> {
+  // Get suggestion
+  const suggestion = await getDb().query.aiSuggestions.findFirst({
+    where: eq(aiSuggestions.id, suggestionId),
+  });
+
+  if (!suggestion) throw new Error('Suggestion not found');
+
+  // Create activity from suggestion
+  const activityId = generateActivityId();
+  await getDb().insert(activities).values({
+    id: activityId,
+    dayId,
+    type: 'main',
+    source: 'ai',
+    sortOrder,
+    time: '',
+    emoji: suggestion.emoji,
+    title: suggestion.title,
+    details: suggestion.details,
+    rating: suggestion.rating,
+    price: suggestion.price,
+    mapUrl: suggestion.mapUrl,
+    lat: suggestion.lat,
+    lng: suggestion.lng,
+  });
+
+  // Remove suggestion after conversion
+  await getDb().delete(aiSuggestions).where(eq(aiSuggestions.id, suggestionId));
+
+  return activityId;
+}
+
+export async function deleteSuggestion(suggestionId: string): Promise<void> {
+  await getDb().delete(aiSuggestions).where(eq(aiSuggestions.id, suggestionId));
 }
